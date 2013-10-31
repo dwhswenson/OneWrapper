@@ -1,0 +1,55 @@
+When dealing with programs that involve making calls between two programming
+languages, one useful programming idea is "contract programming." The basic
+idea is that when one function calls another, each side has to keep up part
+of a deal in order for the code to work. (It gets a lot more complicated,
+but that's the basic idea.) Here I will describe the "contracts" required by
+each kind of script from the OneWrapper.py suite (OneWrapper, RepExSwapper,
+and ScriptLauncher objects).
+
+Note that many of these must launch a job. If you can't submit a job from
+within a script (i.e., if you can't run qsub from one of the compute
+nodes) then the recommended trick is to use `cron` in some clever way to run
+it for you. For example, you can have a directory that `cron` checks
+periodically for scripts; any script in there is run once and then deleted.
+
+ScriptLauncher::run
+-------------------
+The only script for a ScriptLauncher object is its `run` script. It takes
+two arguments: the previous step number and the step number for the run the
+script will launch. 
+
+The `run` script will make any new directories and to prepare any input
+files that need to be made, and then to actually launch each of the jobs.
+
+`OneWrapper` expects two things from the `run` script:
+
+1. The script must set up a file at the location specified by the `waitfile`
+card in `OneWrapper`'s `.conf` file. This file should contain the
+identifiers for each job the script launches (e.g., the interface IDs for
+RETIS or the temperatures for REMD).
+
+2. The final thing each job must do is to launch `OneWrapper.py`, using the
+identifier of the finishing job as the `-r` option, the step number as the
+`-N` option, and the same `.conf` file as used before. It is recommended to
+switch back to the main directory for all these jobs first (otherwise your
+successive steps get nested.)
+
+
+RepExSwapper::try
+-----------------
+
+This is the script to test whether a given pair of replicas can be
+exchanged. It takes 3 arguments: in order, they are the step number, and the
+two replicas to be exchanged. 
+
+This script should return one line with either a 1 (accepted) or 0
+(rejected), followed by whitespace and any additional information to be
+recorded (the rest gets put directly into a log file for later analysis.)
+
+RepExSwapper::acc; rej
+----------------------
+
+The scripts for what to do if a replica exchange move is accepted or
+rejected. Often, `rej` won't actually have to do anything, and `acc` will
+just have to shuffle some filenames around. No output from these scripts will
+be recorded.

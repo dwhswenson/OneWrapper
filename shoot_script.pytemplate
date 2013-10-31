@@ -1,0 +1,19 @@
+#!/bin/bash
+
+step=$STEP
+rep=$REP
+wrapper_conf="example_retis.conf"
+ONEWRAPPER="./OneWrapper.py"
+
+
+
+echo "This would be the job script for step ${step}, replica $rep"
+if [ "$rep" == "000" ]
+then
+    sleep 5
+elif [ "$rep" == "001" ]
+then
+    sleep 2
+fi
+
+${ONEWRAPPER} -N $(( $step + 1 )) -r $rep $wrapper_conf

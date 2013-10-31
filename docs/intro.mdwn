@@ -1,0 +1,33 @@
+# Introduction
+
+The goal of `OneWrapper.py` is to develop a very simple script to handle
+replica exchange in a general case and in a parallel environment. It was
+specifically designed with replica exchange transition interface sampling
+(RETIS) in mind, where the replica exchange is between different
+trajectories which can take very different amounts of time. The most
+efficient way to utilize computer resources is therefore to run each
+trajectory as a separate job on a cluster, and then to do the replica
+exchange after all jobs are complete, followed by submitting a new batch of
+trajectories to the queue.
+
+`OneWrapper.py` automates that by maintaining a `WAITFILE` listing the
+"replicas" (jobs) still running. In practice, this is done by having each
+job call `OneWrapper.py`, passing its identifier as an option, when it
+finishes. When all replicas are done, `OneWrapper.py` decides what move to
+do next. If that move doesn't require a running a long job (as with replica
+exchange moves), `OneWrapper.py` continues until a move that does require a
+long job (such as a shooting move) is selected. Then it launches a script to
+set up the shooting move.
+
+One key point is that, although `OneWrapper.py` is written in Python, it can
+use *any* external script. Therefore, existing shell scripts or Perl scripts
+can be reused for this with only minor modifications: the primary
+requirement is that they only run for as long as needed before another move
+type might be tried, and that they end by calling `OneWrapper.py`.
+
+The rest of this document gives successively more detail on `OneWrapper.py`.
+First, I explain the basic structure of how `OneWrapper.py` works. Next I
+detail the options availble in the various configuration files.
+Then I go into detail on the requirements for user scripts to play nicely
+with `OneWrapper.py`. Finally, we end with detailed documentation of the
+`OneWrapper.py` code.

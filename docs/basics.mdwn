@@ -1,0 +1,92 @@
+# Basics
+
+The OneWrapper script contains three main classes:
+
+* OneWrapper : the main wrapper calculation class
+* ScriptLauncher : generic script launcher class
+* RepExSwapper : generic replica exchange swapping class
+
+The idea is that the user should define scripts which are called by the
+ScriptLauncher and RepExSwapper classes.
+
+## "Replicas"
+
+Since `OneWrapper.py` is designed from replica exchange, it is not
+surprising that much of this is done in terms of replicas. However, there
+are a few essential points that the user should know about how
+`OneWrapper.py` thinks about replicas.
+
+First off, a "replica" doesn't have to just be a single replica. When it
+comes to 
+
+## `OneWrapper`
+
+This is the main wrapper class. It performs two main tasks: tracking when
+all jobs are done, and when all the jobs are done, determining which move to
+do next.
+
+
+
+## `ScriptLauncher`
+
+The `ScriptLauncher` class can launch any kind of script. In fact, we could
+re-implement the `RepExSwapper` as a `ScriptLauncher` instance with the
+appropriate `run` script, although keeping the replica exchanges within
+Python has some conveniences.
+
+A `ScriptLauncher` sets up the `WAITFILE` using whatever replicas it will
+require, and then launches ***
+
+Here's a trick: if your `run` script uses only one (or a few) out of the
+replicas listed in its conf file, remember that `OneWrapper.py` will still
+put all of them into the `WAITFILE`. If that's the case, your script should
+call `OneWrapper.py` with the replicas that aren't used before launching the
+job (that way those replicas get marked as "done" before the job starts.)
+
+### Handling `qsub` within a `ScriptLauncher` run script
+
+The reason `OneWrapper.py` was developed was to efficiently manage replica
+exchange on a shared cluster. This means that it is important that it can
+integrate well with job schedulers. However, many systems are set up to
+discourage or disable the ability to submit a job to the queue from within a
+job script. I propose two ways around that.
+
+The first is to figure out how to use qsub within your submit script
+environment. Often, the problem is just that the environment variables for
+the scheduler aren't loaded on the compute node. With GridEngine, this can
+be fixed in many cases by putting `source ***` before the `qsub` command at
+the end of your script.
+
+The second option is to set up a `cron` job that will submit your jobs for
+you. I have implemented this in a script called `qsubdir`, which is included
+in the distribution of `OneWrapper.py`. I have `cron` run that script every
+5 minutes. See the file README\_qsubdir.txt for details.
+
+## `RepExSwapper`
+
+The `RepExSwapper` class is specialized to handle replica exchange. In
+general, a replica exchange move can involve three actions, each of which is
+a separate scripts in the `RepExSwapper`: first we run the `try` script,
+which tells us whether or not two replicas can be swapper. If the attempt is
+accepted, we run the `acc` script. If it is rejected, we run the `rej`
+script. (In many cases, the `rej` script does nothing, but in general it
+could do something.)
+
+By default, the `RepExSwapper` assumes that all of its scripts run very
+quickly, and so it immediately returns to the `OneWrapper` for another move.
+This can disabled by changing the `recur` option in the conf file.
+
+<!--
+## User-Defined Classes
+
+A user can define their own move classes as well. Any user-defined class
+must have two methods:
+
+* `__init__(self,owner,confline)` : owner is the 
+
+(NB: thanks to Python's duck-typing, there's no need to inherit from a
+parent class. However, both of these methods must behave as described above,
+or else the class won't "quack like a duck.")
+-->
+<!-- TODO: NEED TO GET PARSING IN PYTHON AS A "REGISTER" PROCESS; SO NEW
+MOVERS CAN DO THAT -->
