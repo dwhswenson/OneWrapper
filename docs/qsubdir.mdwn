@@ -1,0 +1,5 @@
+# Using `OneWrapper.py` on a cluster via `qsubdir`
+
+The `qsubdir` script will launch any jobs which have symbolic links within a
+given directory. The idea is that one should use a cron job to periodically
+run the `qsubdir` script. That way, 
