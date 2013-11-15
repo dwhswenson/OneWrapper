@@ -2,9 +2,9 @@
 
 The OneWrapper script contains three main classes:
 
-* OneWrapper : the main wrapper calculation class
-* ScriptLauncher : generic script launcher class
-* RepExSwapper : generic replica exchange swapping class
+* `OneWrapper` : the main wrapper calculation class
+* `ScriptLauncher` : generic script launcher class
+* `RepExSwapper` : generic replica exchange swapping class
 
 The idea is that the user should define scripts which are called by the
 ScriptLauncher and RepExSwapper classes.
@@ -16,8 +16,9 @@ surprising that much of this is done in terms of replicas. However, there
 are a few essential points that the user should know about how
 `OneWrapper.py` thinks about replicas.
 
-First off, a "replica" doesn't have to just be a single replica. When it
-comes to 
+First off, a "replica" doesn't have to just be a single replica. More
+correctly, each "replica" is a "submit job," which might contain several
+replicas. 
 
 ## `OneWrapper`
 
@@ -25,7 +26,8 @@ This is the main wrapper class. It performs two main tasks: tracking when
 all jobs are done, and when all the jobs are done, determining which move to
 do next.
 
-
+The process of watching all the jobs is done by mainting a file called
+`WAITFILE` in the main calculation directory. 
 
 ## `ScriptLauncher`
 
@@ -60,7 +62,7 @@ the end of your script.
 The second option is to set up a `cron` job that will submit your jobs for
 you. I have implemented this in a script called `qsubdir`, which is included
 in the distribution of `OneWrapper.py`. I have `cron` run that script every
-5 minutes. See the file README\_qsubdir.txt for details.
+5 minutes. See the appending on the `qsubdir` script for details.
 
 ## `RepExSwapper`
 
@@ -77,6 +79,30 @@ quickly, and so it immediately returns to the `OneWrapper` for another move.
 This can disabled by changing the `recur` option in the conf file.
 
 <!--
+
+## `Shooter`
+
+`OneWrapper.py` was originally developed with the intention of using it with
+path sampling (transition path sampling and transition interface sampling)
+algorithms. One of the most important aspects of path sampling is the
+so-called "shooting" move, so we have developed a special `Shooter` class
+to handle that. The `Shooter` class can take several scripts as parameters.
+
+* select shooting point
+* modify shooting point
+* build shooting job script
+
+## `sentinel.sh`
+
+The `sentinel.sh` script is designed to help with variable path length
+simulations. If you use a variable path length shooting move, it will launch
+a sentinel as well as the main job. The sentinel runs at a much higher
+priority (based on `nice`), and after some time period will send a `SUSPEND`
+signal to the processes identifies as related to the trajectory. Then the
+sentinel will analyze the path so far, and determine whether the trajectory
+should continue or not. If so, it sends a `RESUME` signal to the trajectory
+processes, and sleeps until the next time it is needed.
+
 ## User-Defined Classes
 
 A user can define their own move classes as well. Any user-defined class
