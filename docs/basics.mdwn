@@ -35,7 +35,10 @@ appropriate `run` script, although keeping the replica exchanges within
 Python has some conveniences.
 
 A `ScriptLauncher` sets up the `WAITFILE` using whatever replicas it will
-require, and then launches ***
+require, and then launches jobs. One of the tricks we use is that the
+configuration file for the `ScriptLauncher` is sent as an argument to the
+script. This means that extra parameters and commands can be placed in the
+`ScriptLauncher` configuration script.
 
 Here's a trick: if your `run` script uses only one (or a few) out of the
 replicas listed in its conf file, remember that `OneWrapper.py` will still

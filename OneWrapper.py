@@ -7,8 +7,27 @@
 
 # Requires Python 2.7 or later for some of the functions from subprocess.
 # Includes support for both optparse and argparse, so we're flexible with
-# Py3.x.
+# Py3.x. Mainly tested with Py2.7 (and hacked to work with Py2.6).
 import subprocess, re, random, os
+
+# A little duck-punching hack to get this to kind-of work with Python 2.6
+# (why can't we just have a decent module-based python setup on our
+# cluster?). Stolen from http://stackoverflow.com/a/13160748 
+if "check_output" not in dir( subprocess ): # duck punch it in!
+    def f(*popenargs, **kwargs):
+        if 'stdout' in kwargs:
+            raise ValueError('stdout argument not allowed, it will be overridden.')
+        process = subprocess.Popen(stdout=subprocess.PIPE, *popenargs, **kwargs)
+        output, unused_err = process.communicate()
+        retcode = process.poll()
+        if retcode:
+            cmd = kwargs.get("args")
+            if cmd is None:
+                cmd = popenargs[0]
+            raise subprocess.CalledProcessError(retcode, cmd)
+        return output
+    subprocess.check_output = f
+
 
 def clean_line(line):
     """ Cleans out comment lines and splits up result by whitespace, so that
@@ -24,19 +43,17 @@ class OneWrapper(object):
 
     def __init__(self,sysargs):
         opts,args = self.parsing(sysargs)
-        conffile=  args[1]
+        self.conffile=  args[1]
         self.stepnum = opts.N
         self.finished = opts.r
 
         self.movers = []
         moverlist = [] 
 
-        #self.waitfile=os.get_cwd()+_"/WAITFILE"
-        self.waitfile="WAITFILE"
 
         # now read the conffile
         # in here, we need to set the movetypes (and related arrays)
-        conff = open(conffile, "r")
+        conff = open(self.conffile, "r")
         for line in conff:
             splitter = clean_line(line)
             if (re.search("move(_)?type", splitter[0], re.I)):
@@ -48,8 +65,11 @@ class OneWrapper(object):
                 mymover['conf'] = splitter[5]
                 moverlist.append(mymover)
 
-            if (re.search("(max)?(_)?(n)?step(s)?", splitter[0], re.I)):
+            if (re.search("^(max)?(_)?(n)?step(s)?$", splitter[0], re.I)):
                 self.maxsteps = int(splitter[1])
+
+            if (re.search("base", splitter[0], re.I)):
+                self.basedir = splitter[1]
 
         totfreq = 0.0
         for moverline in moverlist:
@@ -71,6 +91,7 @@ class OneWrapper(object):
             self.cumprob.append(float(newtot)/float(totfreq))
 
         #print self.cumprob
+        self.waitfile=self.basedir+"/WAITFILE"
 
         return
     
@@ -118,7 +139,7 @@ class OneWrapper(object):
             f.close()
             f = open(self.waitfile, 'r+')
         fcntl.flock(f, fcntl.LOCK_EX)
-        #print "Locked "+self.waitfile
+        print "Locked "+self.waitfile
         # read in the replicas, except the one that matches ours
         waitlist = []
         for ll in f:
@@ -136,7 +157,7 @@ class OneWrapper(object):
         f.truncate()
         # release the lock
         fcntl.flock(f, fcntl.LOCK_UN)
-        #print "Unlocked"
+        print "Unlocked"
         f.close()
         return len(waitlist)
 
@@ -148,6 +169,7 @@ class OneWrapper(object):
             recur = True
             while (recur and (self.stepnum < self.maxsteps)):
                 # now we get to try a move!
+                print "Doing move for step ", self.stepnum
                 move = self.movetype()
                 mymover = self.movers[move]
                 build_waitfile(self.waitfile, mymover)
@@ -172,15 +194,15 @@ def build_waitfile(fname, mover):
     f.close()
     return len(reps)
 
-def prep_repex_cmd(cmd, stepnum, repA, repB):
-    """Puts together the array which becomes our replica exchange script
-    command.
+def string_list(*elements):
+    """Takes its arguments and makes it into a list of strings. Useful when
+    generating commands.
     """
-    mycmd = list(cmd)
-    mycmd.append(str(stepnum))
-    mycmd.append(repA)
-    mycmd.append(repB)
-    return mycmd
+    res = []
+    for elem in elements:
+        res.append(str(elem))
+    print res # DEBUG
+    return res
 
 # #######################################################################
 
@@ -190,8 +212,8 @@ class RepExSwapper(object):
         self.stepnum=owner.stepnum
         self.step = int(confline['step'])
         self.name = confline['name']
-        conffile = confline['conf']
-        conff = open(conffile, "r")
+        self.conffile = confline['conf']
+        conff = open(self.conffile, "r")
         self.pairs = []
         self.recur = True
         for line in conff:
@@ -217,27 +239,30 @@ class RepExSwapper(object):
         [repA, repB] = random.choice(self.pairs)
         trial_success = self.attempt_swap(repA,repB,stepnum)
         if (trial_success):
-            self.onAccept(repA, repB, stepnum, stepnum+self.step)
+            self.onAccept(repA, repB, stepnum)
         else:
-            self.onReject(repA, repB, stepnum, stepnum+self.step)
+            self.onReject(repA, repB, stepnum)
 
         # If the tail call is in an external script, doMove returns false.
         # If we need the looping in here, return true.
         return self.recur
 
     def attempt_swap(self, repA,repB,stepnum):
-        mycmd = prep_repex_cmd(self.trycmd, stepnum, repA, repB)
+        mycmd = string_list(*(self.trycmd+[stepnum, self.step, \
+                    repA, repB, self.owner.conffile, self.conffile]))
         res = subprocess.check_output(mycmd)
         return res
 
-    def onAccept(self, repA, repB, stepnum, nextstep):
-        mycmd = prep_repex_cmd(self.acccmd, stepnum, repA, repB)
+    def onAccept(self, repA, repB, stepnum):
+        mycmd = string_list(*(self.acccmd+[stepnum, self.step, \
+                    repA, repB, self.owner.conffile, self.conffile]))
         res = subprocess.check_output(mycmd)
         print res
         return
 
-    def onReject(self, repA, repB, stepnum, nextstep):
-        mycmd = prep_repex_cmd(self.rejcmd, stepnum, repA, repB)
+    def onReject(self, repA, repB, stepnum):
+        mycmd = string_list(*(self.rejcmd+[stepnum, self.step, \
+                    repA, repB, self.owner.conffile, self.conffile]))
         res = subprocess.check_output(mycmd)
         print res
         return
@@ -251,8 +276,8 @@ class ScriptLauncher(object):
         self.step = int(confline['step'])
         self.name = confline['name']
         self.recur = False
-        conffile = confline['conf']
-        conff = open(conffile, "r")
+        self.conffile = confline['conf']
+        conff = open(self.conffile, "r")
         for line in conff:
             splitter = clean_line(line)
             if (re.search("run",splitter[0], re.I)):
@@ -262,9 +287,8 @@ class ScriptLauncher(object):
         return
 
     def doMove(self,stepnum):
-        mycmd = list(self.runcmd)
-        mycmd.append(str(stepnum))
-        mycmd.append(str(stepnum+self.step))
+        mycmd = string_list(*(self.runcmd+[stepnum, self.step, \
+            self.owner.conffile, self.conffile]))
         myrun = subprocess.check_output(mycmd)
         print myrun
         # If the tail call is in an external script, return false. If we
