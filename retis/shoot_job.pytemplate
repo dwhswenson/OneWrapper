@@ -1,0 +1,146 @@
+#!/bin/bash
+# Serial sample script for Grid Engine
+# Replace items enclosed by {}
+#$ -S /bin/bash
+#$ -q jaipur
+#$ -N N$STEPNUMr$REPNUM
+#$ -V
+#$ -m aes
+#$ -M notify@hyperblazer.net
+#$ -cwd
+#$ -notify
+
+# Template must fill: STEPNUM NEXTSTEP REPNUM CONFFILE
+
+ONEWRAPPER_PY="/home/dwhs/OneWrapper/OneWrapper.py"
+
+# the full-executable name
+EXECUTABLE="echo 'Test running'"
+
+STEP="$STEPNUM"
+NEXT="$NEXTSTEP"
+REP="$REPNUM"
+CONF="$CONFFILE"
+REPINFO="$REPFILE"
+BASE="$MYBASE"
+
+
+generate_tistraj()
+{
+    echo "BASE = $BASE"
+    echo "TISTRAJ = $TISTRAJ"
+    mkdir -p `dirname $TISTRAJ`
+    echo "REPINFO = $REPINFO"
+    touch $TISTRAJ # really, this should make the tistraj
+    NEXT_TISTRAJ_STR=`echo $TISTRAJSTR | sed 's/\$STEP/\$NEXT/'`
+    NEXT_TISTRAJ=`eval echo $NEXT_TISTRAJ_STR`
+    mkdir -p `dirname $NEXT_TISTRAJ`
+    cp $TISTRAJ $NEXT_TISTRAJ
+}
+
+
+
+# write out detailed information on the job
+MY_HOST=`hostname`
+MY_DATE=`date`
+echo "Running on $MY_HOST at $MY_DATE"
+echo "Running on $MY_HOST at $MY_DATE, jobid: ${JOB_ID%%.*}"  > jobid
+echo "================================================================"
+echo JOB_NAME=$JOB_NAME
+echo JOB_ID=$JOB_ID
+echo NSLOTS=$NSLOTS
+echo QUEUE=$QUEUE
+echo SGE_CWD_PATH=$SGE_CWD_PATH
+echo SGE_O_WORKDIR=${SGE_O_WORKDIR}
+echo PATH=$PATH
+echo SGE_STDIN_PATH=$SGE_STDIN_PATH
+echo SGE_STDOUT_PATH=$SGE_STDOUT_PATH
+echo SGE_STDERR_PATH=$SGE_STDERR_PATH
+echo SGE_O_HOST=$SGE_O_HOST
+echo SGE_O_PATH=$SGE_O_PATH
+echo "================================================================"
+
+# no coredumps
+ulimit -S -c 0
+ulimit -s unlimited
+
+# set path for intel compiler libraries
+source /share/apps/intel/bin/compilervars.sh intel64
+
+# set the scratch and results-directory
+WORKDIR=/state/partition1/$USER/$JOB_NAME-${JOB_ID%%.*}
+RESULTS_DIR=${SGE_O_WORKDIR}/$JOB_NAME-${JOB_ID%%.*}
+
+# create the directory in the current directory to store the results
+mkdir -p ${RESULTS_DIR}
+
+# do some preparation
+# create scratch directories on all hosts
+# e.g. VASP and plumed graomacs need the input-data on all nodes
+prologue()
+{
+  # create the scratch directory on the node
+  echo "Making WORKDIR = ${WORKDIR}"
+  mkdir -p ${WORKDIR}
+
+  # copy the needed input-files to all the nodes (replace * by needed files)
+  scp ${SGE_O_WORKDIR}/*inp ${SGE_O_WORKDIR}/*job  ${WORKDIR}/
+  #scp $BASE/*conf $BASE/*replicas ${WORKDIR}/
+  #BASE=`grep "^base" $CONF | awk '{ print $2 }'`
+  TISTRAJSTR=`grep "^tistraj" ${BASE}/${CONF} | awk '{ print $2 }' | 
+              sed 's/STEPNUM/STEP/'`
+  TISTRAJ=`eval echo $TISTRAJSTR`
+}
+
+# detect that the job has been cancelled using 'qdel'
+cancelled()
+{
+  MY_DATE=`date`
+  echo "$MY_HOST at $MY_DATE: JOB HAS BEEN CANCELLED!!"
+}
+trap 'cancelled' SIGUSR2
+
+# run the program
+runprogram()
+{
+  # change to the scratch directory
+  cd ${WORKDIR}
+  ${EXECUTABLE} &> output.log
+  generate_tistraj
+  # TODO: check acceptance of this trajectory
+  
+  # copy (or symlink) most recently accepted trajectories to the right
+  # location
+  
+  # call OneWrapper again
+  pushd $BASE
+  ${ONEWRAPPER_PY} -N $NEXT -r $REPNUM $CONF 
+  popd
+}
+
+# do cleaning up after the job ended or has been cancelled
+epilogue()
+{
+
+ MY_DATE=`date`
+ echo "Copying files back from $MY_HOST to the headnode at $MY_DATE"
+
+ # copying files from scratch-directory back to home
+ if scp -r ${WORKDIR}/* 10.1.1.1:${RESULTS_DIR}
+ then
+   # deleting files from scratch-directories on the host
+   echo "Deleting scratch data on the host"
+   rm -rf $WORKDIR
+ else
+   echo "IMPORTANT: Copying the data back from the host has failed, data is kept on the local nodes"
+ fi
+}
+
+prologue
+runprogram
+epilogue
+
+MY_DATE=`date`
+echo "Job finished at $MY_DATE"
+
+exit

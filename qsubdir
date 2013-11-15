@@ -1,0 +1,53 @@
+#!/bin/bash
+
+# qsubdir
+#   Checks a directory for symlinks to jobs that need to run. If any jobs
+#   are in that directory, change to the directory that it is symlinked to
+#   and run the job, then remove the symlink. 
+
+# this should really be an environment variable
+QSUBDIR="${HOME}/.qsubdir"
+
+# needed for cron to use the GridEngine qsub
+source /etc/profile.d/sge-binaries.sh
+
+if [ ! -d "$QSUBDIR" ]
+then
+    mkdir $QSUBDIR
+fi
+
+if [ $# -eq 0 ]
+then    # this is when we launch scripts
+    # NOTE: if you put symlinks other than job scripts in your $QSUBDIR,
+    # then you deserve whatever hell this rains upon you. Ditto if you have
+    # nested symlinks in there. 
+    for file in ${QSUBDIR}/*
+    do
+        if [ -L "$file" ]
+        then
+            orig_dir=`pwd -P`
+            cd $QSUBDIR
+            # This stuff can be replaced with readlink -f on systems that have
+            # it. Best practice is to symlink with absolute paths; this tries to
+            # handle some relative path stuff, but don't count on it.
+            linkloc=`readlink $file`
+            cd `dirname $linkloc`
+            linkeddir=`pwd -P`
+            cd $QSUBDIR
+            linkedbase=`basename $linkloc`
+            cd $linkeddir
+            qsub $linkedbase && rm $file
+            cd $orig_dir
+        fi
+    done
+else    # this is when we add scripts to the directory; symlink arguments
+    for job in $@
+    do
+        pushd `dirname $job` > /dev/null
+        JPATH=`pwd -P` 
+        popd > /dev/null
+        ln -s ${JPATH}/`basename $job` ${QSUBDIR}/`basename $job`
+        # and God help you if you can't give each job a distinct name
+    done
+fi
+    
