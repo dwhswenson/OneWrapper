@@ -36,7 +36,7 @@ BASE="$MYBASE"
 
 # the runprogram script is in here: note that this could become a variable
 # to be set by the gen_move.py script
-source gromacs_shoot.sh
+source ${BASE}/gromacs_shoot.sh  # NOTE: this isn't where this should live
 
 
 startup     # start the script, output any info

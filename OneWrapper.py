@@ -140,6 +140,7 @@ class OneWrapper(object):
             f = open(self.waitfile, 'r+')
         fcntl.flock(f, fcntl.LOCK_EX)
         print "Locked "+self.waitfile
+        print "Removing replica", self.finished
         # read in the replicas, except the one that matches ours
         waitlist = []
         for ll in f:
@@ -157,6 +158,7 @@ class OneWrapper(object):
         f.truncate()
         # release the lock
         fcntl.flock(f, fcntl.LOCK_UN)
+        print "There remain", len(waitlist), "replicas on nodes"
         print "Unlocked"
         f.close()
         return len(waitlist)

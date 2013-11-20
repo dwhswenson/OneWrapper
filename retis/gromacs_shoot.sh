@@ -33,7 +33,8 @@ runprogram()
   
   # call OneWrapper again
   pushd $BASE
-  ${ONEWRAPPER_PY} -N $NEXT -r $REPNUM $CONF 
+  echo "${ONEWRAPPER_PY} -N $NEXT -r $REP $CONF "
+  ${ONEWRAPPER_PY} -N $NEXT -r $REP $CONF 
   popd
 }
 
