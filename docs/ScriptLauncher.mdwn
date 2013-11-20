@@ -1,0 +1,33 @@
+## ScriptLauncher
+
+The `ScriptLauncher` is a general class for all sorts of scripts. 
+
+
+### Parameters
+
+#### `replicas`
+
+This is the list of replicas which this script will use.
+
+#### `run`
+
+This is the main script that will be run when this move is chosen. It is
+called as:
+
+    SCRIPT_NAME STEPNUMBER NSTEPS GLOBALCONF LOCALCONF
+
+where `SCRIPT_NAME` is the name of the script as given, `NSTEPS` is the
+number of steps this counts for (as determined in the `movetype` line
+for this move in the main `conf` file), `GLOBALCONF` is the main `conf` file
+for the whole calculation (given as the argument on the command line for
+`OneWrapper.py`), and `LOCALCONF` is the `conf` file for this move (given in
+the `movetype` line for this move).
+
+### Parameters for Specific Scripts
+
+#### `shooting.sh`
+
+* `pytmpl` : 
+* `launchjob` :
+
+

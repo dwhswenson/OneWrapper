@@ -1,0 +1,68 @@
+## OneWrapper
+
+The `OneWrapper` class is the main wrapper that manages most 
+
+### General Parameters
+
+#### `base`
+
+This is the base directory for this calculation. Many other locations will
+be relative to this directory.
+
+#### `stepstyle`, `repstyle`
+
+These parameters give printf-like styling for the step number and replica
+ID, respectively. This allows us to, for example, zero-pad filenames
+associated with step numbers.
+
+#### `repinfo`
+
+The `repinfo` card identifies the replicas file (relative to `base`), which
+describes the replicas used in the calculation. Different calculation types
+may have different formats for the replicas file.
+
+For TIS, the replicas file consists of lines of four fields each: replica
+label, interface set to which the replica belongs, minimum value of lambda
+for the interface, and the name of a script for calculating the order
+parameter. For details on this script, see TIS Order Parameter Scripts.
+
+#### `maxstep`
+
+The total number of steps to be taken in this calculation. See `movetype` to
+know how to change the cost in "steps" for different kinds of moves.
+
+#### `movetype`
+
+The `movetype` lines describe all the moves done by our calculations. Each
+line consists of six fields: first, the `movetype` card to identify the
+purpose of the line. Then a name field, which is used to identify which move
+was made in output. After that is a relative frequency for each move. The
+fourth field is the number of steps this move counts as (typically either 1
+or 0).
+
+The fifth field gives the move type, and must be one of `repex_swapper` or
+`script_launcher`. The last field gives the `conf` file for this move; this
+file should be relative to the directory given in the `base` parameter.
+
+### Parameters for specific kinds of calculations
+
+#### `tistraj` (RETIS-only)
+
+The `tistraj` card identifies the locations of of the TIS trajectory files.
+TIS trajectory files are simplifications of a trajectory with columns
+representing the ***
+
+The filename can include the following variables:
+
+* `$BASE` : the value of the `base` parameter
+* `$REP` : the replica label with `repstyle` applied to it
+* `$STEPNUM` : the step number with `stepstyle` applied to it
+
+
+
+### Calling OneWrapper
+
+`OneWrapper.py` must be called with the `-N` option to tell what step number
+to start with, and with the `conf` file as an argument. In addition, it can
+be called with the `-r` option to mark the replica given in that as
+completed (removing it from the `WAITFILE`).

@@ -1,13 +1,23 @@
 #!/bin/bash
 
-ONEWRAP="/home/dwhs/OneWrapper"
+# TODO: NOTE: there is nothing shooting-specific in this as it currently
+# stands. All it does is launch a move based on the pytmpl it is given;
+# that's much more generic than shooting
+
+ONEWRAP="/home/${USER}/OneWrapper"
+function qlaunch
+{
+    ${ONEWRAP}/qsubdir $1 # qsubdir (Carbon)
+    #sbatch 
+}
+
 
 STEPNUM=$1
 DELTA=$2
 CONF=$3
 MYCONF=$4
 
-echo "shooting.sh $STEPNUM $REPNUM $DELTA $CONF $MYCONF"
+echo "shooting.sh $STEPNUM $DELTA $CONF $MYCONF"
 
 # NOTE: all things handled by the semiparse function must have the card at
 # the start of the line, and the part that gets returned must have no spaces
@@ -51,7 +61,7 @@ do
 
 
     # 3. Launch the job (i.e., add to qsubdir)
-    ${ONEWRAP}/qsubdir ${LAUNCHJOB}
+    qlaunch ${LAUNCHJOB}
 done
 
 

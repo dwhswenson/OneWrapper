@@ -1,0 +1,47 @@
+#!/bin/bash
+# Serial sample script for Grid Engine
+# Replace items enclosed by {}
+#$ -S /bin/bash
+#$ -q jaipur
+#$ -N N$STEPNUMr$REPNUM
+#$ -V
+#$ -m aes
+#$ -M notify@hyperblazer.net
+#$ -cwd
+#$ -notify
+
+# Cluster-dependent setup (headers above are also cluster-dependent)
+ONEWRAPPER_PY="/home/${USER}/OneWrapper/OneWrapper.py"     
+
+# the startup, prologue, epilogue, and closing functions are defined on a
+# per-cluster basis
+source /home/${USER}/servers/carbon_serial.sh
+
+TOSCRATCH='${SGE_O_WORKDIR}/*inp ${SGE_O_WORKDIR}/*job '
+
+# Cartesius/Gromacs
+#export GMXLIB="/hpc/sw/gromacs-4.5.5-sp/share/gromacs/top"
+
+# ########################################################################
+# ###### EVERYTHING BELOW HERE SHOULD BE THE SAME FOR ALL CLUSTERS #######
+# ########################################################################
+
+# Variables filled by gen_move.py script
+STEP="$STEPNUM"
+NEXT="$NEXTSTEP"
+REP="$REPNUM"
+CONF="$CONFFILE"
+REPINFO="$REPFILE"
+BASE="$MYBASE"
+
+# the runprogram script is in here: note that this could become a variable
+# to be set by the gen_move.py script
+source gromacs_shoot.sh
+
+
+startup     # start the script, output any info
+prologue    # copy files to compute local nodes
+runprogram  # do the real work
+epilogue    # copy files back from the compute nodes
+closing     # output on finishing script
+exit

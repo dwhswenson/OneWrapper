@@ -7,7 +7,8 @@ The OneWrapper script contains three main classes:
 * `RepExSwapper` : generic replica exchange swapping class
 
 The idea is that the user should define scripts which are called by the
-ScriptLauncher and RepExSwapper classes.
+ScriptLauncher and RepExSwapper classes. Additional parameters for each of
+these are determined by various `conf` files.
 
 ## "Replicas"
 
