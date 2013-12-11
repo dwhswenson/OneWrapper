@@ -1,0 +1,45 @@
+# Design Decisions
+
+Software design is always a matter of trade-offs, and designing a system to
+link several external programs is even more about those trade-offs. Here are
+the design decision that guided development of `OneWrapper`.
+
+### Flexibility
+
+`OneWrapper` aims to be a very flexible wrapper for replica exchange. The
+primary focus in on replica exchange transition interface sampling (RETIS),
+but that is simply because there weren't enough other tools for RETIS.
+However, `OneWrapper` can also be easily used for replica exchange MD, and
+we've also used it to develop new replica exchange approaches such as
+zig-zag replica exchange.
+
+Another way in which `OneWrapper` tries to be flexible is with regard to
+the programs that it is used with. The `OneWrapper` core scripts are
+completely independent of any choice of underlying dynamics program, so by
+simply implementing a few translation scripts, `OneWrapper` can work with
+any external dynamics program. We include translation scripts for Gromacs,
+NAMD, and QChem; users can easily develop translations for other engines.
+
+### Expensive Trajectories
+
+`OneWrapper` assume that we're working on a system where the time associated
+with the overhead for launching the program and starting a trajectory is
+significantly less than the time it takes to run the trajectory. In
+biomolecular systems, and certainly in QM/MM simulations, this is nearly
+always the case. However, `OneWrapper` would not be well-suited for
+per-trajectory launches of small toy models.
+
+### Expensive Processor Time
+
+We assume that processor time is expensive, meaning that we want to release
+a node quickly rather than let it idle while waiting for other processes to
+finish.
+
+### Short Queue Times
+
+We assume that the queue times are relatively short. This can be considered
+as part of the assumption that the trajectory overhead time is much less
+than the trajectory calculation time, since we can consider the queue time
+as part of the overhead in launching a trajectory. This may limit the
+usefulness of `OneWrapper` when working on high-demand, low-availability
+clusters such as some top national lab clusters. 

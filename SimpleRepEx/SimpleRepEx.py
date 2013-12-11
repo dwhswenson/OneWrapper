@@ -15,8 +15,14 @@ def clean_and_split(line):
 
 class Replica:
     def __init__(self):
-        label = -1
-        host = -1
+        self.label = -1
+        self.host = -1
+        self.direction = 0
+        return
+
+    def set_dir(self, limit, matchdir):
+        if (self.host == limit):
+            self.direction=matchdir
         return
 
     def set_host(self, host):
@@ -42,7 +48,7 @@ class ReplicaSet:
         xi = random.random()
         #print "Attempting to swap", self.swap_pairs[mypair],
         if ( xi <= self.swap_probs[mypair] ):
-            #print "Y"
+            print self.swap_pairs[mypair], "Y"
             nrepA = self.reps[self.swap_pairs[mypair][0]].host
             nrepB = self.reps[self.swap_pairs[mypair][1]].host
             foo = self.reps[nrepA]
@@ -50,11 +56,14 @@ class ReplicaSet:
             self.reps[nrepB] = foo
             self.reps[nrepA].set_host(nrepA)
             self.reps[nrepB].set_host(nrepB)
-            print self.step, nrepA, self.reps[nrepA].label
-            print self.step, nrepB, self.reps[nrepB].label
+            #print self.step, nrepA, self.reps[nrepA].label
+            #print self.step, nrepB, self.reps[nrepB].label
+            self.reps[nrepA].set_dir(self.max_host, -1)
+            self.reps[nrepB].set_dir(self.max_host, -1)
+            self.reps[nrepA].set_dir(self.min_host, 1)
+            self.reps[nrepB].set_dir(self.min_host, 1)
         else:
-            #print "N"
-            pass
+            print self.swap_pairs[mypair], "N"
         return
 
     def output(self):
@@ -67,7 +76,8 @@ class ReplicaSet:
         myf = sys.stdout if fname=="" else open(fname, 'w')
         for i in range(len(self.reps)):
             #mystr = sprintf( "%3d %3d", i, self.reps[i].label)
-            myf.write(str(i)+" "+str(self.reps[i].label)+"\n")
+            myf.write(str(i) + " " + str(self.reps[i].label) + " " \
+                    + str(self.reps[i].direction) + "\n")
         return
 
 
@@ -85,6 +95,8 @@ class ReplicaSet:
                 myrep.set_host(i)
                 self.reps.append(myrep)
                 i+=1
+        self.min_host = 0
+        self.max_host = len(self.reps)-1
         return
 
     def load_swap_pairs(self,fname):
@@ -120,11 +132,15 @@ if __name__ == "__main__":
     swapper.load_swap_pairs(opt.swap)
     
     #swapper.output()
-    for rep in swapper.reps:
-        print swapper.step, rep.host, rep.label
+    swapper.reps[swapper.min_host].set_dir(swapper.min_host, 1)
+    swapper.reps[swapper.max_host].set_dir(swapper.max_host, -1)
+    print swapper.step
+    swapper.full_output("")
     for i in range(opt.nsteps):
+        print swapper.step,
         swapper.do_swap()
         #swapper.output()
+        swapper.full_output("")
 
     swapper.full_output("final.out")
 

@@ -286,6 +286,8 @@ class ScriptLauncher(object):
                 self.runcmd = splitter[1:]
             if (re.search("rep(lica)?s", splitter[0], re.I)):
                 self.replicas = splitter[1:]
+            if (re.search("recur(s)?", splitter[0], re.I)):
+                self.recur = splitter[1]
         return
 
     def doMove(self,stepnum):
