@@ -27,16 +27,18 @@ then    # this is when we launch scripts
         then
             orig_dir=`pwd -P`
             cd $QSUBDIR
+            #pushd $QSUBDIR > /dev/null
             # This stuff can be replaced with readlink -f on systems that have
             # it. Best practice is to symlink with absolute paths; this tries to
             # handle some relative path stuff, but don't count on it.
             linkloc=`readlink $file`
             cd `dirname $linkloc`
+            #pushd `dirname $linkloc`
             linkeddir=`pwd -P`
             cd $QSUBDIR
             linkedbase=`basename $linkloc`
             cd $linkeddir
-            qsub $linkedbase && rm $file
+            qsub -h $linkedbase && rm $file
             cd $orig_dir
         fi
     done

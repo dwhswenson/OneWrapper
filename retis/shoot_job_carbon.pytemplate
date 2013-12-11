@@ -4,14 +4,11 @@
 #$ -S /bin/bash
 #$ -q jaipur
 #$ -N N$STEPNUMr$REPNUM
-#$ -V
-#$ -m aes
-#$ -M notify@hyperblazer.net
 #$ -cwd
-#$ -notify
 
 # Cluster-dependent setup (headers above are also cluster-dependent)
 ONEWRAPPER_PY="/home/${USER}/OneWrapper/OneWrapper.py"     
+
 
 # the startup, prologue, epilogue, and closing functions are defined on a
 # per-cluster basis
@@ -33,6 +30,7 @@ REP="$REPNUM"
 CONF="$CONFFILE"
 REPINFO="$REPFILE"
 BASE="$MYBASE"
+
 
 # the runprogram script is in here: note that this could become a variable
 # to be set by the gen_move.py script
