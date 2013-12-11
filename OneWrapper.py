@@ -3,12 +3,13 @@
 # OneWrapper.py
 #   Very simple scripts for general parallel replica exchange.
 #   Written by David W.H. Swenson
-#   Current version 2013-10-22
+#   Current version 2013-12-09
 
-# Requires Python 2.7 or later for some of the functions from subprocess.
-# Includes support for both optparse and argparse, so we're flexible with
-# Py3.x. Mainly tested with Py2.7 (and hacked to work with Py2.6).
-import subprocess, re, random, os
+# Prefers Python 2.7 or later for some of the functions from subprocess,
+# although we duck-punch in some stuff to get Py2.6 to work. Includes
+# support for both optparse and argparse, so we're flexible with Py3.x. 
+import subprocess, re, random
+import os, sys, errno
 
 # A little duck-punching hack to get this to kind-of work with Python 2.6
 # (why can't we just have a decent module-based python setup on our
@@ -38,6 +39,7 @@ def clean_line(line):
     line = re.sub('\s*$', '', line) # kill blank space at end
     splitter = re.split('\s+', line) # split line into words
     return splitter
+
 
 class OneWrapper(object):
 
@@ -91,7 +93,8 @@ class OneWrapper(object):
             self.cumprob.append(float(newtot)/float(totfreq))
 
         #print self.cumprob
-        self.waitfile=self.basedir+"/WAITFILE"
+        waitfile=self.basedir+"/WAITFILE"
+        self.waiting = Waitdir(waitfile)
 
         return
     
@@ -124,29 +127,71 @@ class OneWrapper(object):
             move+=1
         return move
 
-    def update_waitlist(self):
+    def run(self,stepnum):
+        """Main function for this calculation class.
+        """
+        if (self.waiting.update(self.finished)==0):
+            self.stepnum = stepnum
+            recur = True
+            while (recur and (self.stepnum < self.maxsteps)):
+                # now we get to try a move!
+                print "Doing move for step ", self.stepnum
+                move = self.movetype()
+                mymover = self.movers[move]
+                self.waiting.build(mymover)
+                recur = mymover.doMove(stepnum)
+                self.stepnum += mymover.step
+        return
+
+# #######################################################################
+
+# Various waiting objects: file-based or directory-based. Expected to quack
+# properly with init(name), build(mover), and update(rep)
+class Waitfile(object):
+    """File based job control. This has been mostly abandonned."""
+    
+    def __init__(self, fname):
+        self.fname = fname
+        return
+
+    def build(self, mover):
+        """Assuming that mover is an object with a list called replicas, this
+        appends each of the replica labels to the waitfile in fname.
+        """
+        try:
+            reps = mover.replicas
+        except:
+            reps = []
+        f = open(self.fname, 'a')
+        # possibly lock it, just to be safe? shouldn't be needed tho
+        for rep in reps:
+            f.write(rep+"\n")
+        f.close()
+        return len(reps)
+
+    def update(self, rep):
         """Read in WAITLIST file while ignoring the replica we just
         finished; write it back out without our replica, and return the
         number of remaining entries.
         """
         import fcntl
-        # open self.waitfile, lock it
+        # open waitfile, lock it
         try:
-            f = open(self.waitfile, 'r+')
+            f = open(self.fname, 'r+')
         except:
             # open for writing and close it to create an empty file
-            f = open(self.waitfile, 'w')
+            f = open(self.fname, 'w')
             f.close()
-            f = open(self.waitfile, 'r+')
+            f = open(self.fname, 'r+')
         fcntl.flock(f, fcntl.LOCK_EX)
-        print "Locked "+self.waitfile
-        print "Removing replica", self.finished
+        print "Locked "+self.fname
+        print "Removing replica", rep
         # read in the replicas, except the one that matches ours
         waitlist = []
         for ll in f:
             line=clean_line(ll)[0]
             #print "Reading "+line+" ",
-            if (line!=self.finished):
+            if (line!=rep):
                 waitlist.append(line)
                 #print "Appended!",
             #print
@@ -163,38 +208,48 @@ class OneWrapper(object):
         f.close()
         return len(waitlist)
 
-    def run(self,stepnum):
-        """Main function for this calculation class.
-        """
-        if (self.update_waitlist()==0):
-            self.stepnum = stepnum
-            recur = True
-            while (recur and (self.stepnum < self.maxsteps)):
-                # now we get to try a move!
-                print "Doing move for step ", self.stepnum
-                move = self.movetype()
-                mymover = self.movers[move]
-                build_waitfile(self.waitfile, mymover)
-                recur = mymover.doMove(stepnum)
-                self.stepnum += mymover.step
+class Waitdir(object):
+    """Directory-based job control. Each replica has a file within the
+    directory; when the replica finishes, we remove that file."""
+
+    import os.path # we assume os was already imported
+
+    def __init__(self, dname):
+        self.dname = dname
+        try:
+            os.makedirs(self.dname)
+        except OSError as exception:
+            if (exception.errno != errno.EEXIST):
+                raise
         return
 
-# #######################################################################
+    def build(self, mover):
+        try:
+            reps = mover.replicas
+        except:
+            reps = []
+        for rep in reps:
+            fname = self.dname + "/" + rep
+            with file(fname, 'a'):
+                os.utime(fname, None)
+        return
 
-def build_waitfile(fname, mover):
-    """Assuming that mover is an object with a list called replicas, this
-    appends each of the replica labels to the waitfile in fname.
-    """
-    try:
-        reps = mover.replicas
-    except:
-        reps = []
-    f = open(fname, 'a')
-    # possibly lock it, just to be safe? shouldn't be needed tho
-    for rep in reps:
-        f.write(rep+"\n")
-    f.close()
-    return len(reps)
+    def update(self, rep):
+        if (rep != None):
+            fname = self.dname + "/" + rep
+            print "Removing "+rep
+            print "fname = "+fname
+            if (os.path.isfile(fname)):
+                os.remove(fname)
+            else:
+                print "Warning: tried to remove "+fname
+                print "Apparently it doesn't exist"
+
+        nfiles=len([name for name in os.listdir(self.dname) \
+                        if os.path.isfile(os.path.join(self.dname,name))])
+        print "nfiles="+str(nfiles) # DEBUG
+        return nfiles
+
 
 def string_list(*elements):
     """Takes its arguments and makes it into a list of strings. Useful when

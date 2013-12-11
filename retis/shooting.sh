@@ -8,6 +8,7 @@ ONEWRAP="/home/${USER}/OneWrapper"
 function qlaunch
 {
     ${ONEWRAP}/qsubdir $1 # qsubdir (Carbon)
+    #echo $1
     #sbatch 
 }
 
