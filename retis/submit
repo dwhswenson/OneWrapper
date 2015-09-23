@@ -1,0 +1,18 @@
+#!/bin/bash
+#SBATCH -n 16
+#SBATCH -t 24:00:00
+
+# bunches o' comments from DWHS, trying to understand
+
+# first we copy all supporting files to the TMPDIR (locally defined scratch)
+cp -r $HOME/dna.baseroll $TMPDIR/
+
+# need to know where to find gromacs stuff
+export GMXLIB=/hpc/sw/gromacs-4.5.5-sp/share/gromacs/top
+
+# change into the directory specific to this calculation
+cd /home/prokin01/tis_baseroll/b0
+# the perl script also handles moving all the files specific to this run
+# onto the local nodes
+./tis_baseroll_b 1>output.log/main.log 2>output.log/main.err
+
